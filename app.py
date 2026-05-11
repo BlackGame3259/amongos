@@ -9,26 +9,26 @@ def home():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Beatbox Gato - Pro</title>
+        <title>Beatbox Gato - Easy Detect</title>
         <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { background: black; overflow: hidden; display: flex; align-items: center; justify-content: center; height: 100vh; }
             
-            /* Cámara en pantalla completa de fondo */
+            /* Cámara de fondo */
             #output_canvas { position: absolute; width: 100vw; height: 100vh; object-fit: cover; transform: scaleX(-1); }
             video#input_video { position: absolute; opacity: 0; }
 
-            /* Video del gato en ESPACIO PEQUEÑO (esquina superior derecha) */
+            /* Ventana pequeña del gato */
             #video_gato {
                 display: none;
                 position: fixed;
                 top: 20px;
                 right: 20px;
-                width: 320px; /* Tamaño pequeño */
+                width: 320px;
                 height: auto;
-                border: 3px solid #00ff00; /* Un borde para que resalte */
+                border: 3px solid #00ff00;
                 border-radius: 15px;
                 z-index: 10;
                 box-shadow: 0px 0px 20px rgba(0,255,0,0.5);
@@ -57,27 +57,27 @@ def home():
                 canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
                 canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
                 
-                let manoEnBoca = false;
-                let manoEnCabeza = false;
+                let manoEnZonaBoca = false;
+                let manoEnZonaCabeza = false;
 
                 if (results.multiHandLandmarks) {
                     for (const landmarks of results.multiHandLandmarks) {
-                        const yPalma = landmarks[9].y; 
+                        const yPalma = landmarks[9].y; // Altura de la palma
 
-                        // Lógica de pose:
-                        // 1. Mano en la boca (Zona central baja de la cara: Y entre 0.5 y 0.75)
-                        if (yPalma > 0.5 && yPalma < 0.75) {
-                            manoEnBoca = true;
+                        // RANGOS MÁS FÁCILES:
+                        // 1. Mano en zona de la boca/pecho (Cualquier cosa de la mitad para abajo)
+                        if (yPalma > 0.45) {
+                            manoEnZonaBoca = true;
                         }
-                        // 2. Mano en la cabeza (Zona superior: Y entre 0.05 y 0.35)
-                        if (yPalma > 0.05 && yPalma < 0.35) {
-                            manoEnCabeza = true;
+                        // 2. Mano en zona de la cabeza (Cualquier cosa de la mitad para arriba)
+                        if (yPalma < 0.45) {
+                            manoEnZonaCabeza = true;
                         }
                     }
                 }
 
-                // Solo si AMBAS condiciones se cumplen al mismo tiempo
-                if (manoEnBoca && manoEnCabeza) {
+                // Activación: Basta con tener una mano arriba y otra abajo
+                if (manoEnZonaBoca && manoEnZonaCabeza) {
                     if (gatoVideo.style.display !== 'block') {
                         gatoVideo.style.display = 'block';
                         gatoVideo.play().catch(e => {});
@@ -93,7 +93,15 @@ def home():
             }
 
             const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-            hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
+            
+            // Bajamos la confianza a 0.4 para que detecte la mano aunque esté moviéndose rápido
+            hands.setOptions({ 
+                maxNumHands: 2, 
+                modelComplexity: 1, 
+                minDetectionConfidence: 0.4, 
+                minTrackingConfidence: 0.4 
+            });
+            
             hands.onResults(onResults);
 
             const camera = new Camera(videoElement, {
