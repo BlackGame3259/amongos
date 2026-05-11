@@ -1,3 +1,4 @@
+import os
 from flask import Flask, render_template_string
 
 app = Flask(__name__)
@@ -8,27 +9,29 @@ def home():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Beatbox Gato</title>
+        <title>Beatbox Gato - Pro</title>
         <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { background: black; overflow: hidden; display: flex; align-items: center; justify-content: center; height: 100vh; }
             
-            /* La cámara ocupa todo el fondo */
+            /* Cámara en pantalla completa de fondo */
             #output_canvas { position: absolute; width: 100vw; height: 100vh; object-fit: cover; transform: scaleX(-1); }
             video#input_video { position: absolute; opacity: 0; }
 
-            /* Tu video gato.mp4 (oculto hasta que hagas la pose) */
+            /* Video del gato en ESPACIO PEQUEÑO (esquina superior derecha) */
             #video_gato {
                 display: none;
                 position: fixed;
-                top: 0;
-                left: 0;
-                width: 100vw;
-                height: 100vh;
-                object-fit: cover;
+                top: 20px;
+                right: 20px;
+                width: 320px; /* Tamaño pequeño */
+                height: auto;
+                border: 3px solid #00ff00; /* Un borde para que resalte */
+                border-radius: 15px;
                 z-index: 10;
+                box-shadow: 0px 0px 20px rgba(0,255,0,0.5);
             }
         </style>
     </head>
@@ -54,21 +57,30 @@ def home():
                 canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
                 canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
                 
-                let manosEnPose = 0;
+                let manoEnBoca = false;
+                let manoEnCabeza = false;
+
                 if (results.multiHandLandmarks) {
                     for (const landmarks of results.multiHandLandmarks) {
                         const yPalma = landmarks[9].y; 
-                        // Si la mano está en la parte central/superior (pose de gato)
-                        if (yPalma > 0.2 && yPalma < 0.7) {
-                            manosEnPose++;
+
+                        // Lógica de pose:
+                        // 1. Mano en la boca (Zona central baja de la cara: Y entre 0.5 y 0.75)
+                        if (yPalma > 0.5 && yPalma < 0.75) {
+                            manoEnBoca = true;
+                        }
+                        // 2. Mano en la cabeza (Zona superior: Y entre 0.05 y 0.35)
+                        if (yPalma > 0.05 && yPalma < 0.35) {
+                            manoEnCabeza = true;
                         }
                     }
                 }
 
-                if (manosEnPose >= 2) {
+                // Solo si AMBAS condiciones se cumplen al mismo tiempo
+                if (manoEnBoca && manoEnCabeza) {
                     if (gatoVideo.style.display !== 'block') {
                         gatoVideo.style.display = 'block';
-                        gatoVideo.play();
+                        gatoVideo.play().catch(e => {});
                     }
                 } else {
                     if (gatoVideo.style.display !== 'none') {
@@ -81,7 +93,7 @@ def home():
             }
 
             const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-            hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+            hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
             hands.onResults(onResults);
 
             const camera = new Camera(videoElement, {
@@ -95,4 +107,5 @@ def home():
     """)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
